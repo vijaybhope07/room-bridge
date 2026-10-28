@@ -38,6 +38,7 @@ export const GoogleOAuthModal: React.FC<GoogleOAuthModalProps> = ({
   );
   const [loading, setLoading] = useState(false);
   const [selectedAccountEmail, setSelectedAccountEmail] = useState<string | null>(null);
+  const [domainUnauthorized, setDomainUnauthorized] = useState(false);
 
   // Load existing Google accounts and config
   useEffect(() => {
@@ -77,6 +78,11 @@ export const GoogleOAuthModal: React.FC<GoogleOAuthModalProps> = ({
     } catch (err: any) {
       if (err.code === 'auth/popup-closed-by-user') {
         toast.info('Google Sign-In popup was closed');
+      } else if (err.code === 'auth/unauthorized-domain') {
+        setDomainUnauthorized(true);
+        toast.warning(
+          `Domain "${window.location.hostname}" is not authorized in Firebase Console yet. Please pick any account below or enter your Gmail to continue instantly.`
+        );
       } else {
         toast.error(err.message || 'Firebase Google Sign-In failed');
       }
@@ -242,6 +248,22 @@ export const GoogleOAuthModal: React.FC<GoogleOAuthModalProps> = ({
         {/* View A: Account Chooser List */}
         {!showAddAnother ? (
           <div className="space-y-3">
+            {domainUnauthorized && (
+              <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-200/90 text-amber-900 text-xs space-y-1.5 animate-in fade-in duration-150">
+                <div className="flex items-center gap-1.5 font-bold text-amber-900">
+                  <span className="text-amber-600 font-bold text-sm">⚠️</span>
+                  <span>Domain Authorization Notice</span>
+                </div>
+                <p className="text-[11px] leading-relaxed text-amber-800">
+                  <code className="bg-amber-100/90 px-1 py-0.5 rounded font-mono font-semibold text-amber-950">{typeof window !== 'undefined' ? window.location.hostname : 'domain'}</code> is not yet whitelisted in Firebase Console Authorized Domains.
+                </p>
+                <div className="pt-1.5 border-t border-amber-200/70 text-[11px] font-semibold text-emerald-800 flex items-center gap-1">
+                  <span>👉</span>
+                  <span>Select any verified account below or enter your Gmail to sign in immediately without restrictions!</span>
+                </div>
+              </div>
+            )}
+
             {/* Direct 1-Click Firebase Google OAuth Button */}
             <button
               type="button"

@@ -877,6 +877,9 @@ function CompulsoryOnboardingModal({
       console.warn('[Firebase Google Auth]', err);
       if (err?.code === 'auth/popup-closed-by-user' || err?.code === 'auth/cancelled-popup-request') {
         toast.info('Google sign-in popup was closed.');
+      } else if (err?.code === 'auth/unauthorized-domain') {
+        toast.warning(`Domain "${window.location.hostname}" is not authorized in Firebase Console yet. Opening instant Google sign-in...`);
+        setGoogleModalOpen(true);
       } else {
         // Fall back to opening the accounts dialog
         toast.info('Opening Google account selector...');

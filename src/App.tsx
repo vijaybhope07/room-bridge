@@ -48,6 +48,7 @@ import { Navbar } from './components/Navbar';
 import { Footer } from './components/Footer';
 import { RoomCard } from './components/RoomCard';
 import { RoommateCard } from './components/RoommateCard';
+import { DEFAULT_ROOMS, DEFAULT_ROOMMATES } from './data/mockData';
 import { BEHAVIORAL_QUESTIONS, BehavioralQuestion } from './data/behavioralQuestions';
 import { RoomDetailsModal } from './components/RoomDetailsModal';
 import { RoommateCompatibilityModal } from './components/RoommateCompatibilityModal';
@@ -241,8 +242,8 @@ export default function App() {
   }, [hasCompletedOnboarding, selectedIntent]);
 
   // Core Data State
-  const [rooms, setRooms] = useState<Room[]>([]);
-  const [roommates, setRoommates] = useState<RoommateProfile[]>([]);
+  const [rooms, setRooms] = useState<Room[]>(() => DEFAULT_ROOMS);
+  const [roommates, setRoommates] = useState<RoommateProfile[]>(() => DEFAULT_ROOMMATES);
   const [savedRoomIds, setSavedRoomIds] = useState<Set<string>>(new Set(['room-1']));
   const [savedRoommateUids, setSavedRoommateUids] = useState<Set<string>>(new Set(['user-mate-2']));
   const [requests, setRequests] = useState<{ incoming: RoommateRequest[]; outgoing: RoommateRequest[] }>({

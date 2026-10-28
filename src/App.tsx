@@ -56,7 +56,7 @@ import { RoommateCompatibilityModal } from './components/RoommateCompatibilityMo
 import { GoogleOAuthModal } from './components/GoogleOAuthModal';
 import { GoogleOneTap } from './components/GoogleOneTap';
 import { GoogleOAuthPopupPage } from './pages/GoogleOAuthPopupPage';
-import { signInWithGoogleFirebase, onFirebaseAuthStateChanged, syncUserProfileToFirestore, syncPreferencesToFirestore, syncRoomToFirestore } from './services/firebase';
+import { signInWithGoogleFirebase, onFirebaseAuthStateChanged, syncUserProfileToFirestore, syncPreferencesToFirestore, syncRoomToFirestore, signOutFirebase } from './services/firebase';
 import { api } from './services/api';
 import {
   Room,
@@ -410,16 +410,25 @@ export default function App() {
     toast.success(`Request ${status === 'accepted' ? 'accepted' : 'declined'} successfully`);
   };
 
-  // Logout / Switch Account
-  const handleLogout = () => {
+  // Logout / Switch Account -> Immediately direct to 3 options popup modal
+  const handleLogout = async () => {
+    try {
+      await signOutFirebase();
+    } catch (e) {}
     localStorage.removeItem('roombridge_user');
     localStorage.removeItem('roombridge_onboarding_completed');
-    // Note: roombridge_intent is deliberately NOT removed so device permanently remembers user choice
+    localStorage.removeItem('roombridge_questionnaire_completed');
+    localStorage.removeItem('roombridge_intent');
+    localStorage.removeItem('roombridge_answers_room');
+    localStorage.removeItem('roombridge_answers_roommate');
+    localStorage.removeItem('roombridge_answers_combined');
     setCurrentUser(null);
     setHasCompletedOnboarding(false);
-    setOnboardingStep('auth');
-    setOnboardingOpen(false);
-    toast.info('Signed out successfully. Your selected goal remains remembered.');
+    setSelectedIntent('combined');
+    setOnboardingStep('intent');
+    setOnboardingOpen(true);
+    navigate('/');
+    toast.success('Signed out successfully. Please select your housing goal.');
   };
 
   // Trigger Onboarding / Questionnaire from Navbar

@@ -167,10 +167,10 @@ export const Navbar: React.FC<NavbarProps> = ({
               {onLogout && (
                 <button
                   onClick={onLogout}
-                  className="ml-1 text-[11px] font-medium text-slate-400 hover:text-rose-600 transition-colors"
-                  title="Sign out / Switch account"
+                  className="ml-2 px-2.5 py-1 text-xs font-bold rounded-lg border border-slate-200 text-slate-600 hover:text-rose-600 hover:border-rose-200 hover:bg-rose-50 transition-colors flex items-center gap-1 cursor-pointer"
+                  title="Sign out and choose housing goal"
                 >
-                  Exit
+                  <span>Sign Out</span>
                 </button>
               )}
             </div>
@@ -239,6 +239,20 @@ export const Navbar: React.FC<NavbarProps> = ({
               {link.label}
             </Link>
           ))}
+
+          {currentUser && onLogout && (
+            <div className="pt-2 border-t border-slate-100">
+              <button
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  onLogout();
+                }}
+                className="w-full py-2.5 px-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer"
+              >
+                <span>Sign Out ({currentUser.displayName})</span>
+              </button>
+            </div>
+          )}
         </div>
       )}
     </header>

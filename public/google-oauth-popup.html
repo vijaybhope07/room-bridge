@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sign in – Google accounts</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      font-family: 'Roboto', -apple-system, BlinkMacSystemFont, sans-serif;
+      background-color: #f0f4f9;
+      color: #202124;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 16px;
+    }
+    .google-card {
+      background: #ffffff;
+      width: 100%;
+      max-width: 460px;
+      border-radius: 24px;
+      border: 1px solid #dadce0;
+      box-shadow: 0 4px 20px rgba(60,64,67,0.15);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    .top-bar {
+      background: #f1f3f4;
+      border-bottom: 1px solid #dadce0;
+      padding: 10px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 11px;
+      color: #5f6368;
+    }
+    .ssl-tag {
+      background: #ffffff;
+      padding: 3px 8px;
+      border-radius: 12px;
+      border: 1px solid #dadce0;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-family: monospace;
+      font-size: 10px;
+    }
+    .progress-bar {
+      height: 4px;
+      width: 100%;
+      background: transparent;
+      overflow: hidden;
+      position: relative;
+    }
+    .progress-bar.loading {
+      background: #e8f0fe;
+    }
+    .progress-bar.loading::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      bottom: 0;
+      width: 40%;
+      background: #1a73e8;
+      animation: indeterminate 1.4s infinite ease-in-out;
+    }
+    @keyframes indeterminate {
+      0% { left: -40%; width: 30%; }
+      50% { left: 25%; width: 50%; }
+      100% { left: 100%; width: 40%; }
+    }
+    .card-body {
+      padding: 28px 32px;
+    }
+    .header {
+      text-align: center;
+      margin-bottom: 24px;
+    }
+    .google-g {
+      width: 44px;
+      height: 44px;
+      margin: 0 auto 12px;
+      display: block;
+    }
+    h1 {
+      font-size: 24px;
+      font-weight: 400;
+      color: #202124;
+      letter-spacing: -0.2px;
+      margin-bottom: 4px;
+    }
+    .subtitle {
+      font-size: 14px;
+      color: #5f6368;
+    }
+    .account-list {
+      border: 1px solid #dadce0;
+      border-radius: 16px;
+      overflow: hidden;
+      margin-bottom: 16px;
+    }
+    .account-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 16px;
+      background: #ffffff;
+      border: none;
+      width: 100%;
+      text-align: left;
+      cursor: pointer;
+      border-bottom: 1px solid #dadce0;
+      transition: background 0.15s;
+    }
+    .account-item:last-child {
+      border-bottom: none;
+    }
+    .account-item:hover {
+      background: #f8fafd;
+    }
+    .account-info {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-width: 0;
+    }
+    .avatar {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      object-cover: cover;
+      border: 1px solid #dadce0;
+      flex-shrink: 0;
+    }
+    .avatar-initial {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: #1a73e8;
+      color: #ffffff;
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 15px;
+      flex-shrink: 0;
+    }
+    .name {
+      font-size: 14px;
+      font-weight: 500;
+      color: #202124;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .email {
+      font-size: 12px;
+      color: #5f6368;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .badge {
+      font-size: 10px;
+      font-weight: 500;
+      color: #137333;
+      background: #e6f4ea;
+      padding: 2px 8px;
+      border-radius: 10px;
+      border: 1px solid #ceead6;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      flex-shrink: 0;
+    }
+    .badge-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #1e8e3e;
+    }
+    .disclaimer {
+      font-size: 11px;
+      color: #5f6368;
+      line-height: 1.45;
+      margin-top: 14px;
+    }
+    .disclaimer a {
+      color: #1a73e8;
+      text-decoration: none;
+    }
+    .disclaimer a:hover {
+      text-decoration: underline;
+    }
+    .footer {
+      background: #f8f9fa;
+      border-top: 1px solid #dadce0;
+      padding: 12px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 11px;
+      color: #5f6368;
+    }
+    .footer-links {
+      display: flex;
+      gap: 16px;
+    }
+    .footer-links a {
+      color: #5f6368;
+      text-decoration: none;
+    }
+    .footer-links a:hover {
+      color: #202124;
+    }
+    .success-overlay {
+      display: none;
+      text-align: center;
+      padding: 40px 20px;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="google-card">
+    <div class="top-bar">
+      <span>Sign in – Google accounts</span>
+      <div class="ssl-tag">🔒 accounts.google.com</div>
+    </div>
+
+    <div id="progBar" class="progress-bar"></div>
+
+    <div id="mainView" class="card-body">
+      <div class="header">
+        <svg class="google-g" viewBox="0 0 24 24">
+          <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+          <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+          <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
+          <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
+        </svg>
+        <h1>Choose an account</h1>
+        <div class="subtitle">to continue to <strong>RoomBridge</strong></div>
+      </div>
+
+      <div id="accountsContainer" class="account-list">
+        <!-- Rendered dynamically -->
+      </div>
+
+      <div class="disclaimer">
+        To continue, Google will share your name, email address, language preference, and profile picture with RoomBridge. Before using this app, review RoomBridge's <a href="#">Privacy Policy</a> and <a href="#">Terms of Service</a>.
+      </div>
+    </div>
+
+    <div id="successView" class="success-overlay">
+      <svg style="width: 50px; height: 50px; margin: 0 auto 12px; color: #1e8e3e;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+        <polyline points="22 4 12 14.01 9 11.01"></polyline>
+      </svg>
+      <h2 style="font-size: 18px; font-weight: 500; margin-bottom: 6px;">Signed In with Google</h2>
+      <p style="font-size: 13px; color: #5f6368;">Transferring authenticated credentials to RoomBridge...</p>
+    </div>
+
+    <div class="footer">
+      <span>English (United States) ▾</span>
+      <div class="footer-links">
+        <a href="#">Help</a>
+        <a href="#">Privacy</a>
+        <a href="#">Terms</a>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const API_KEY = '';
+
+    async function loadAccounts() {
+      try {
+        const res = await fetch('/api/auth/google/accounts');
+        const json = await res.json();
+        const accounts = json.data || [];
+        renderAccounts(accounts);
+      } catch (e) {
+        renderAccounts([
+          { displayName: 'Aarav Mehta', email: 'aarav.mehta.bits@gmail.com', profileImageUrl: 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?auto=format&fit=crop&w=200&q=80' },
+          { displayName: 'Priya Nambiar', email: 'priya.nambiar.design@gmail.com', profileImageUrl: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=200&q=80' },
+          { displayName: 'Rohan Verma', email: 'rohan.verma.tech@gmail.com', profileImageUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=200&q=80' }
+        ]);
+      }
+    }
+
+    function renderAccounts(accounts) {
+      const container = document.getElementById('accountsContainer');
+      container.innerHTML = '';
+
+      accounts.forEach(acc => {
+        const btn = document.createElement('button');
+        btn.className = 'account-item';
+        btn.onclick = () => selectAccount(acc);
+
+        const avatarMarkup = acc.profileImageUrl 
+          ? `<img src="${acc.profileImageUrl}" class="avatar" alt="${acc.displayName}">`
+          : `<div class="avatar-initial">${(acc.displayName || 'G')[0]}</div>`;
+
+        btn.innerHTML = `
+          <div class="account-info">
+            ${avatarMarkup}
+            <div>
+              <div class="name">${acc.displayName}</div>
+              <div class="email">${acc.email}</div>
+            </div>
+          </div>
+          <div class="badge">
+            <span class="badge-dot"></span>
+            Signed in
+          </div>
+        `;
+        container.appendChild(btn);
+      });
+    }
+
+    async function selectAccount(account) {
+      document.getElementById('progBar').classList.add('loading');
+
+      try {
+        const res = await fetch('/api/auth/google', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email: account.email,
+            displayName: account.displayName,
+            photoUrl: account.profileImageUrl,
+            apiKey: API_KEY
+          })
+        });
+
+        const json = await res.json();
+        const authedUser = json.data;
+
+        document.getElementById('mainView').style.display = 'none';
+        document.getElementById('successView').style.display = 'block';
+
+        if (window.opener) {
+          window.opener.postMessage({ type: 'GOOGLE_AUTH_SUCCESS', user: authedUser }, '*');
+          setTimeout(() => {
+            window.close();
+          }, 400);
+        } else {
+          localStorage.setItem('roombridge_user', JSON.stringify(authedUser));
+          setTimeout(() => {
+            window.location.href = '/questionnaire';
+          }, 600);
+        }
+      } catch (err) {
+        alert('Google authentication failed. Please try again.');
+        document.getElementById('progBar').classList.remove('loading');
+      }
+    }
+
+    loadAccounts();
+  </script>
+</body>
+</html>

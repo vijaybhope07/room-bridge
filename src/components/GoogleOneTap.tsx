@@ -130,7 +130,7 @@ export const GoogleOneTap: React.FC<GoogleOneTapProps> = ({
               <span>Connecting to Google...</span>
             </>
           ) : (
-            <span>Continue as {firstName}</span>
+            <span>Sign in as {firstName}</span>
           )}
         </button>
 
@@ -152,7 +152,7 @@ export const GoogleOneTap: React.FC<GoogleOneTapProps> = ({
 
         {/* Google Terms Note */}
         <p className="text-[10px] text-[#5f6368] leading-tight border-t border-[#dadce0] pt-2.5">
-          To continue, Google will share your name, email address, language preference, and profile picture with RoomBridge.
+          To sign in, Google will securely share your name, email address, language preference, and profile picture with RoomBridge.
         </p>
       </div>
     </div>

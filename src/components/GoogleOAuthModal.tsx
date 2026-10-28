@@ -235,7 +235,7 @@ export const GoogleOAuthModal: React.FC<GoogleOAuthModalProps> = ({
               : 'Choose an account'}
           </h2>
           <p className="text-sm text-[#5f6368]">
-            to continue to <strong className="font-semibold text-[#202124]">RoomBridge</strong>
+            Sign in to <strong className="font-semibold text-[#202124]">RoomBridge</strong>
           </p>
         </div>
 
@@ -517,7 +517,7 @@ export const GoogleOAuthModal: React.FC<GoogleOAuthModalProps> = ({
 
         {/* Legal / Data sharing disclosure */}
         <p className="text-[11px] text-[#5f6368] leading-relaxed pt-2">
-          To continue, Google will share your name, email address, language preference, and profile picture with RoomBridge. Before using this app, review RoomBridge's <span className="text-[#1a73e8] hover:underline cursor-pointer">Privacy Policy</span> and <span className="text-[#1a73e8] hover:underline cursor-pointer">Terms of Service</span>.
+          To sign in, Google will securely share your name, email address, language preference, and profile picture with RoomBridge. Before using this app, review RoomBridge's <span className="text-[#1a73e8] hover:underline cursor-pointer">Privacy Policy</span> and <span className="text-[#1a73e8] hover:underline cursor-pointer">Terms of Service</span>.
         </p>
       </div>
 

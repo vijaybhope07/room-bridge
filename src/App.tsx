@@ -116,7 +116,7 @@ export default function App() {
     const top = window.screenY + (window.outerHeight - height) / 2;
     try {
       const popup = window.open(
-        '/oauth/google-popup',
+        '/google-oauth-popup.html',
         'GoogleSignIn',
         `width=${width},height=${height},left=${left},top=${top},status=0,toolbar=0,location=0,menubar=0,directories=0,resizable=0`
       );
@@ -649,12 +649,14 @@ export default function App() {
         />
       )}
 
-      {/* Google One Tap Floating Prompt (Like Medium, Canva, Pinterest) */}
-      <GoogleOneTap
-        currentUser={currentUser}
-        onSuccess={handleGoogleAuthSuccess}
-        onOpenFullGoogleModal={openGoogleSignInPopup}
-      />
+      {/* Google One Tap Prompt (Only when onboarding modal is closed) */}
+      {!onboardingOpen && !currentUser && (
+        <GoogleOneTap
+          currentUser={currentUser}
+          onSuccess={handleGoogleAuthSuccess}
+          onOpenFullGoogleModal={openGoogleSignInPopup}
+        />
+      )}
 
       {/* Standalone / Fallback Google OAuth Modal */}
       <GoogleOAuthModal
@@ -877,6 +879,7 @@ function CompulsoryOnboardingModal({
         toast.info('Google sign-in popup was closed.');
       } else {
         // Fall back to opening the accounts dialog
+        toast.info('Opening Google account selector...');
         setGoogleModalOpen(true);
       }
     } finally {
@@ -891,7 +894,7 @@ function CompulsoryOnboardingModal({
     const top = window.screenY + (window.outerHeight - height) / 2;
     try {
       const popup = window.open(
-        '/oauth/google-popup',
+        '/google-oauth-popup.html',
         'GoogleSignIn',
         `width=${width},height=${height},left=${left},top=${top},status=0,toolbar=0,location=0,menubar=0,directories=0,resizable=0`
       );
@@ -951,15 +954,6 @@ function CompulsoryOnboardingModal({
             }
           }
         });
-        const btnEl = document.getElementById('google-official-btn');
-        if (btnEl) {
-          (window as any).google.accounts.id.renderButton(btnEl, {
-            theme: 'outline',
-            size: 'large',
-            width: 320,
-            text: 'continue_with'
-          });
-        }
       } catch (err) {
         console.warn('[GIS Init] Google Sign-In init error:', err);
       }
@@ -1467,12 +1461,13 @@ function CompulsoryOnboardingModal({
 
               {/* Google / Gmail Authentication Options */}
               <div className="space-y-2.5">
-                {/* Professional Firebase Google Sign In Button */}
+                {/* Single Runnable Sign in with Google Button */}
                 <button
                   type="button"
+                  id="sign-in-with-google-btn"
                   onClick={handleFirebaseGoogleLogin}
                   disabled={googleLoading}
-                  className="w-full h-11 px-4 rounded-xl border border-[#dadce0] bg-white hover:bg-[#f8fafd] text-[#3c4043] font-medium text-sm shadow-[0_1px_2px_0_rgba(60,64,67,0.1)] hover:shadow-[0_1px_3px_1px_rgba(60,64,67,0.15)] transition-all flex items-center justify-between relative group"
+                  className="w-full h-11 px-4 rounded-xl border border-[#dadce0] bg-white hover:bg-[#f8fafd] text-[#3c4043] font-medium text-sm shadow-[0_1px_2px_0_rgba(60,64,67,0.1)] hover:shadow-[0_2px_5px_rgba(60,64,67,0.15)] active:scale-[0.99] transition-all flex items-center justify-between relative group cursor-pointer"
                   style={{ fontFamily: "'Roboto', 'Plus Jakarta Sans', sans-serif" }}
                 >
                   <div className="flex items-center gap-3">
@@ -1488,7 +1483,7 @@ function CompulsoryOnboardingModal({
                   </div>
                   <div className="flex items-center gap-1.5 text-[11px] font-medium text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
                     <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                    <span>Firebase Auth</span>
+                    <span>Instant Login</span>
                   </div>
                 </button>
 
@@ -1496,14 +1491,11 @@ function CompulsoryOnboardingModal({
                 <button
                   type="button"
                   onClick={() => setGoogleModalOpen(true)}
-                  className="w-full py-1 text-xs text-teal-700 hover:text-teal-900 font-semibold flex items-center justify-center gap-1.5 hover:underline"
+                  className="w-full py-1 text-xs text-teal-700 hover:text-teal-900 font-semibold flex items-center justify-center gap-1.5 hover:underline cursor-pointer"
                 >
                   <Users className="w-3.5 h-3.5" />
                   <span>Choose from Saved Accounts or Enter Custom Gmail</span>
                 </button>
-
-                {/* Google Official GSI Button Mount */}
-                <div id="google-official-btn" className="flex justify-center" />
 
                 {/* Google API Key & Config status bar */}
                 <div className="flex items-center justify-between px-1 text-[11px] text-slate-500">

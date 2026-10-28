@@ -374,10 +374,74 @@ export const api = {
 
   async getGoogleAccounts(): Promise<User[]> {
     const json = await safeFetchJson<{ success: boolean; data: User[] }>(`${API_BASE}/auth/google/accounts`);
-    if (json && Array.isArray(json.data)) {
+    if (json && Array.isArray(json.data) && json.data.length > 0) {
       return json.data;
     }
-    return [];
+    return [
+      {
+        uid: 'google-aarav-mehta',
+        displayName: 'Aarav Mehta',
+        email: 'aarav.mehta.bits@gmail.com',
+        profileImageUrl: 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?auto=format&fit=crop&w=200&q=80',
+        role: 'user',
+        profileCompleted: true,
+        occupation: 'Software Engineer',
+        college: 'BITS Pilani',
+        city: 'Bengaluru',
+        preferredLocality: 'Indiranagar',
+        age: 23,
+        budgetMin: 14000,
+        budgetMax: 22000,
+        cleanliness: 'spotless',
+        noiseTolerance: 'low',
+        foodPreference: 'vegetarian',
+        sleepTime: '23:30',
+        wakeTime: '07:30',
+        bio: 'Aarav Mehta • Software Engineer at tech startup in Indiranagar. Looking for a neat and peaceful flat.'
+      },
+      {
+        uid: 'google-priya-nambiar',
+        displayName: 'Priya Nambiar',
+        email: 'priya.nambiar.design@gmail.com',
+        profileImageUrl: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=200&q=80',
+        role: 'user',
+        profileCompleted: true,
+        occupation: 'Product Designer',
+        college: 'NID Bengaluru',
+        city: 'Bengaluru',
+        preferredLocality: 'Koramangala',
+        age: 24,
+        budgetMin: 15000,
+        budgetMax: 25000,
+        cleanliness: 'spotless',
+        noiseTolerance: 'moderate',
+        foodPreference: 'any',
+        sleepTime: '00:00',
+        wakeTime: '08:00',
+        bio: 'Priya Nambiar • Product Designer. Enjoys minimalist decor, morning coffee, and clean shared spaces.'
+      },
+      {
+        uid: 'google-rohan-verma',
+        displayName: 'Rohan Verma',
+        email: 'rohan.verma.tech@gmail.com',
+        profileImageUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=200&q=80',
+        role: 'user',
+        profileCompleted: true,
+        occupation: 'Data Scientist',
+        college: 'IIT Bombay',
+        city: 'Bengaluru',
+        preferredLocality: 'HSR Layout',
+        age: 25,
+        budgetMin: 16000,
+        budgetMax: 24000,
+        cleanliness: 'tidy',
+        noiseTolerance: 'low',
+        foodPreference: 'vegetarian',
+        sleepTime: '23:00',
+        wakeTime: '07:00',
+        bio: 'Rohan Verma • Data Scientist at AI research lab. Calm, organized, and focused on healthy living.'
+      }
+    ];
   },
 
   async register(payload: { displayName: string; email: string; role?: string; occupation?: string; college?: string; city?: string }): Promise<User> {

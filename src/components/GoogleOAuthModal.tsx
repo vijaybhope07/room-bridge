@@ -64,6 +64,8 @@ export const GoogleOAuthModal: React.FC<GoogleOAuthModalProps> = ({
     setLoading(true);
     try {
       const authed = await signInWithGoogleFirebase();
+      const savedIntent = (localStorage.getItem('roombridge_intent') as any) || 'combined';
+      if (!authed.selectedIntent) authed.selectedIntent = savedIntent;
       localStorage.setItem('roombridge_user', JSON.stringify(authed));
       localStorage.setItem('roombridge_onboarding_completed', 'true');
       toast.success(`Connected via Firebase Google Auth: ${authed.displayName}`);
@@ -103,6 +105,8 @@ export const GoogleOAuthModal: React.FC<GoogleOAuthModalProps> = ({
         apiKey: googleApiKey
       });
 
+      const savedIntent = (localStorage.getItem('roombridge_intent') as any) || 'combined';
+      if (!authed.selectedIntent) authed.selectedIntent = savedIntent;
       localStorage.setItem('roombridge_user', JSON.stringify(authed));
       localStorage.setItem('roombridge_onboarding_completed', 'true');
 
@@ -152,6 +156,8 @@ export const GoogleOAuthModal: React.FC<GoogleOAuthModalProps> = ({
         apiKey: googleApiKey
       });
 
+      const savedIntent = (localStorage.getItem('roombridge_intent') as any) || 'combined';
+      if (!authed.selectedIntent) authed.selectedIntent = savedIntent;
       localStorage.setItem('roombridge_user', JSON.stringify(authed));
       localStorage.setItem('roombridge_onboarding_completed', 'true');
 

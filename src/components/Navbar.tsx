@@ -6,6 +6,7 @@ import { User } from '../types';
 interface NavbarProps {
   currentUser: User | null;
   savedCount: number;
+  selectedIntent?: 'room' | 'roommate' | 'combined';
   onOpenOnboarding?: () => void;
   onOpenGoogleLogin?: () => void;
   onLogout?: () => void;
@@ -14,12 +15,14 @@ interface NavbarProps {
 export const Navbar: React.FC<NavbarProps> = ({ 
   currentUser, 
   savedCount, 
+  selectedIntent,
   onOpenOnboarding, 
   onOpenGoogleLogin, 
   onLogout 
 }) => {
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
+  const activeGoal = selectedIntent || currentUser?.selectedIntent || (typeof window !== 'undefined' ? (localStorage.getItem('roombridge_intent') as any) : undefined);
 
   const navLinks = [
     { to: '/rooms', label: 'Find a Room', icon: Home },
@@ -87,11 +90,11 @@ export const Navbar: React.FC<NavbarProps> = ({
             >
               <Sparkles className="w-3.5 h-3.5 text-teal-600" />
               <span>
-                {currentUser?.selectedIntent === 'room'
-                  ? 'Goal: Room'
-                  : currentUser?.selectedIntent === 'roommate'
-                  ? 'Goal: Roommate'
-                  : currentUser?.selectedIntent === 'combined'
+                {activeGoal === 'room'
+                  ? 'Goal: Find Room'
+                  : activeGoal === 'roommate'
+                  ? 'Goal: Find Roommate'
+                  : activeGoal === 'combined'
                   ? 'Goal: Room + Mate'
                   : 'Start Questionnaire'}
               </span>

@@ -89,7 +89,8 @@ export default function App() {
   });
 
   const [onboardingOpen, setOnboardingOpen] = useState<boolean>(() => {
-    return localStorage.getItem('roombridge_questionnaire_completed') !== 'true';
+    // Modal opens upon user interaction or continuing questionnaire, never traps them on initial page load
+    return false;
   });
 
   const [onboardingStep, setOnboardingStep] = useState<'intent' | 'auth' | 'questionnaire'>(() => {
@@ -97,13 +98,32 @@ export default function App() {
     if (questionnaireDone) return 'questionnaire';
     const savedIntent = localStorage.getItem('roombridge_intent');
     const savedUser = localStorage.getItem('roombridge_user');
-    if (!savedIntent) return 'intent';
-    if (!savedUser) return 'auth';
-    return 'questionnaire';
+    // If user has already chosen their purpose previously, never ask them to choose 'intent' again
+    if (savedIntent) {
+      return savedUser ? 'questionnaire' : 'auth';
+    }
+    if (savedUser) {
+      try {
+        const u = JSON.parse(savedUser);
+        if (u.selectedIntent) return 'questionnaire';
+      } catch (e) {}
+    }
+    return 'intent';
   });
 
   const [selectedIntent, setSelectedIntent] = useState<'room' | 'roommate' | 'combined'>(() => {
-    return (localStorage.getItem('roombridge_intent') as any) || 'combined';
+    const saved = localStorage.getItem('roombridge_intent');
+    if (saved === 'room' || saved === 'roommate' || saved === 'combined') {
+      return saved;
+    }
+    const userSaved = localStorage.getItem('roombridge_user');
+    if (userSaved) {
+      try {
+        const parsed = JSON.parse(userSaved);
+        if (parsed.selectedIntent) return parsed.selectedIntent;
+      } catch (e) {}
+    }
+    return 'combined';
   });
 
   // Global Google OAuth Popup & Modal State
@@ -136,8 +156,12 @@ export default function App() {
   };
 
   const handleGoogleAuthSuccess = (authedUser: User) => {
+    const savedIntent = (localStorage.getItem('roombridge_intent') as any) || selectedIntent || authedUser.selectedIntent || 'combined';
+    if (!authedUser.selectedIntent) authedUser.selectedIntent = savedIntent;
+    setSelectedIntent(savedIntent);
     setCurrentUser(authedUser);
     localStorage.setItem('roombridge_user', JSON.stringify(authedUser));
+    localStorage.setItem('roombridge_intent', savedIntent);
     setDirectGoogleModalOpen(false);
 
     const questionnaireDone = localStorage.getItem('roombridge_questionnaire_completed') === 'true';
@@ -150,9 +174,9 @@ export default function App() {
       setHasCompletedOnboarding(true);
       setOnboardingOpen(false);
       toast.success(`Welcome back, ${authedUser.displayName}!`);
-      if (selectedIntent === 'room') {
+      if (savedIntent === 'room') {
         navigate('/rooms');
-      } else if (selectedIntent === 'roommate') {
+      } else if (savedIntent === 'roommate') {
         navigate('/roommates');
       } else {
         navigate('/questionnaire');
@@ -170,6 +194,7 @@ export default function App() {
           try { parsed = JSON.parse(saved); } catch (e) {}
         }
 
+        const savedIntent = (localStorage.getItem('roombridge_intent') as any) || parsed.selectedIntent || selectedIntent || 'combined';
         const authedUser: User = {
           uid: fbUser.uid,
           displayName: fbUser.displayName || parsed.displayName || 'Google User',
@@ -180,11 +205,15 @@ export default function App() {
           city: parsed.city || 'Bengaluru',
           occupation: parsed.occupation || 'Software Engineer',
           college: parsed.college || 'BITS Pilani',
+          selectedIntent: savedIntent,
           ...parsed
         };
+        if (!authedUser.selectedIntent) authedUser.selectedIntent = savedIntent;
 
+        setSelectedIntent(savedIntent);
         setCurrentUser(authedUser);
         localStorage.setItem('roombridge_user', JSON.stringify(authedUser));
+        localStorage.setItem('roombridge_intent', savedIntent);
 
         const questionnaireDone = localStorage.getItem('roombridge_questionnaire_completed') === 'true';
         if (questionnaireDone) {
@@ -193,7 +222,6 @@ export default function App() {
         } else {
           setHasCompletedOnboarding(false);
           setOnboardingStep('questionnaire');
-          setOnboardingOpen(true);
         }
       }
     });
@@ -394,17 +422,22 @@ export default function App() {
   const handleLogout = () => {
     localStorage.removeItem('roombridge_user');
     localStorage.removeItem('roombridge_onboarding_completed');
-    localStorage.removeItem('roombridge_intent');
+    // Note: roombridge_intent is deliberately NOT removed so device permanently remembers user choice
     setCurrentUser(null);
     setHasCompletedOnboarding(false);
-    setOnboardingStep('intent');
-    setOnboardingOpen(true);
-    toast.info('Signed out. Please select your purpose to begin.');
+    setOnboardingStep('auth');
+    setOnboardingOpen(false);
+    toast.info('Signed out successfully. Your selected goal remains remembered.');
   };
 
   // Trigger Onboarding / Questionnaire from Navbar
   const handleOpenOnboarding = () => {
-    setOnboardingStep(currentUser ? 'questionnaire' : 'intent');
+    const savedIntent = localStorage.getItem('roombridge_intent') || selectedIntent;
+    if (savedIntent) {
+      setOnboardingStep(currentUser ? 'questionnaire' : 'auth');
+    } else {
+      setOnboardingStep('intent');
+    }
     setOnboardingOpen(true);
   };
 
@@ -418,6 +451,7 @@ export default function App() {
       <Navbar
         currentUser={currentUser}
         savedCount={totalSavedCount}
+        selectedIntent={selectedIntent}
         onOpenOnboarding={handleOpenOnboarding}
         onOpenGoogleLogin={openGoogleSignInPopup}
         onLogout={handleLogout}
@@ -434,6 +468,7 @@ export default function App() {
                 roommates={roommates}
                 savedRoomIds={savedRoomIds}
                 savedRoommateUids={savedRoommateUids}
+                selectedIntent={selectedIntent}
                 onToggleSaveRoom={handleToggleSaveRoom}
                 onToggleSaveRoommate={handleToggleSaveRoommate}
                 onViewRoom={setSelectedRoom}
@@ -443,6 +478,12 @@ export default function App() {
                 onLaunchOnboarding={(intent) => {
                   setSelectedIntent(intent);
                   localStorage.setItem('roombridge_intent', intent);
+                  if (currentUser) {
+                    const u = { ...currentUser, selectedIntent: intent };
+                    setCurrentUser(u);
+                    localStorage.setItem('roombridge_user', JSON.stringify(u));
+                    syncUserProfileToFirestore(u).catch(() => {});
+                  }
                   setOnboardingStep(currentUser ? 'questionnaire' : 'auth');
                   setOnboardingOpen(true);
                 }}
@@ -786,9 +827,28 @@ function CompulsoryOnboardingModal({
     }
   };
 
+  // Auto-advance past Step 1 if an option was already selected
+  useEffect(() => {
+    const saved = localStorage.getItem('roombridge_intent') || intent || currentUser?.selectedIntent;
+    if (saved && step === 'intent') {
+      if (!currentUser) {
+        setStep('auth');
+      } else {
+        setStep('questionnaire');
+      }
+    }
+  }, []);
+
   // Intent Selection Handler
   const handleSelectIntent = (chosen: 'room' | 'roommate' | 'combined') => {
     setIntent(chosen);
+    localStorage.setItem('roombridge_intent', chosen);
+    if (currentUser) {
+      const updated = { ...currentUser, selectedIntent: chosen };
+      setCurrentUser(updated);
+      localStorage.setItem('roombridge_user', JSON.stringify(updated));
+      syncUserProfileToFirestore(updated).catch(() => {});
+    }
     if (!currentUser) {
       setStep('auth');
     } else {
@@ -1367,16 +1427,27 @@ function CompulsoryOnboardingModal({
                 <button
                   type="button"
                   onClick={() => handleSelectIntent('room')}
-                  className="group p-6 rounded-2xl border-2 border-slate-200 hover:border-teal-500 bg-white hover:bg-teal-50/30 text-left transition-all duration-200 flex flex-col justify-between shadow-sm hover:shadow-md hover:-translate-y-0.5"
+                  className={`group p-6 rounded-2xl border-2 text-left transition-all duration-200 flex flex-col justify-between shadow-sm hover:shadow-md hover:-translate-y-0.5 ${
+                    intent === 'room'
+                      ? 'border-teal-500 bg-teal-50/60 ring-2 ring-teal-500/20'
+                      : 'border-slate-200 hover:border-teal-500 bg-white hover:bg-teal-50/30'
+                  }`}
                 >
                   <div className="space-y-3">
                     <div className="w-12 h-12 rounded-2xl bg-teal-50 border border-teal-200 text-teal-600 flex items-center justify-center group-hover:scale-110 transition-transform shadow-sm">
                       <HomeIcon className="w-6 h-6" />
                     </div>
                     <div>
-                      <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-slate-100 text-slate-700">
-                        Option 1
-                      </span>
+                      <div className="flex items-center gap-1.5">
+                        <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-slate-100 text-slate-700">
+                          Option 1
+                        </span>
+                        {intent === 'room' && (
+                          <span className="px-2 py-0.5 rounded text-[10px] font-extrabold uppercase bg-teal-600 text-white shadow-xs">
+                            ✓ Currently Active
+                          </span>
+                        )}
+                      </div>
                       <h3 className="font-extrabold text-base text-slate-900 mt-1 group-hover:text-teal-700 transition-colors">
                         Find a Room
                       </h3>
@@ -1387,7 +1458,7 @@ function CompulsoryOnboardingModal({
                   </div>
 
                   <div className="pt-4 border-t border-slate-100 mt-4 flex items-center justify-between text-xs font-bold text-teal-700">
-                    <span>Select &amp; Continue</span>
+                    <span>{intent === 'room' ? 'Continue with Room' : 'Select & Continue'}</span>
                     <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                   </div>
                 </button>
@@ -1396,16 +1467,27 @@ function CompulsoryOnboardingModal({
                 <button
                   type="button"
                   onClick={() => handleSelectIntent('roommate')}
-                  className="group p-6 rounded-2xl border-2 border-slate-200 hover:border-teal-500 bg-white hover:bg-teal-50/30 text-left transition-all duration-200 flex flex-col justify-between shadow-sm hover:shadow-md hover:-translate-y-0.5"
+                  className={`group p-6 rounded-2xl border-2 text-left transition-all duration-200 flex flex-col justify-between shadow-sm hover:shadow-md hover:-translate-y-0.5 ${
+                    intent === 'roommate'
+                      ? 'border-indigo-500 bg-indigo-50/60 ring-2 ring-indigo-500/20'
+                      : 'border-slate-200 hover:border-teal-500 bg-white hover:bg-teal-50/30'
+                  }`}
                 >
                   <div className="space-y-3">
                     <div className="w-12 h-12 rounded-2xl bg-indigo-50 border border-indigo-200 text-indigo-600 flex items-center justify-center group-hover:scale-110 transition-transform shadow-sm">
                       <Users className="w-6 h-6" />
                     </div>
                     <div>
-                      <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-slate-100 text-slate-700">
-                        Option 2
-                      </span>
+                      <div className="flex items-center gap-1.5">
+                        <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-slate-100 text-slate-700">
+                          Option 2
+                        </span>
+                        {intent === 'roommate' && (
+                          <span className="px-2 py-0.5 rounded text-[10px] font-extrabold uppercase bg-indigo-600 text-white shadow-xs">
+                            ✓ Currently Active
+                          </span>
+                        )}
+                      </div>
                       <h3 className="font-extrabold text-base text-slate-900 mt-1 group-hover:text-indigo-700 transition-colors">
                         Find a Roommate
                       </h3>
@@ -1416,7 +1498,7 @@ function CompulsoryOnboardingModal({
                   </div>
 
                   <div className="pt-4 border-t border-slate-100 mt-4 flex items-center justify-between text-xs font-bold text-indigo-700">
-                    <span>Select &amp; Continue</span>
+                    <span>{intent === 'roommate' ? 'Continue with Roommate' : 'Select & Continue'}</span>
                     <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                   </div>
                 </button>
@@ -1425,16 +1507,27 @@ function CompulsoryOnboardingModal({
                 <button
                   type="button"
                   onClick={() => handleSelectIntent('combined')}
-                  className="group p-6 rounded-2xl border-2 border-teal-500 bg-teal-50/40 text-left transition-all duration-200 flex flex-col justify-between shadow-md hover:shadow-lg hover:-translate-y-0.5 ring-2 ring-teal-500/20"
+                  className={`group p-6 rounded-2xl border-2 text-left transition-all duration-200 flex flex-col justify-between shadow-md hover:shadow-lg hover:-translate-y-0.5 ${
+                    intent === 'combined'
+                      ? 'border-teal-500 bg-teal-50/70 ring-2 ring-teal-500/30'
+                      : 'border-teal-300 bg-white hover:bg-teal-50/30'
+                  }`}
                 >
                   <div className="space-y-3">
                     <div className="w-12 h-12 rounded-2xl bg-teal-600 text-white flex items-center justify-center group-hover:scale-110 transition-transform shadow-md">
                       <Sparkles className="w-6 h-6" />
                     </div>
                     <div>
-                      <span className="px-2 py-0.5 rounded text-[10px] font-extrabold uppercase bg-teal-600 text-white shadow-sm">
-                        Option 3 • Recommended
-                      </span>
+                      <div className="flex items-center gap-1.5">
+                        <span className="px-2 py-0.5 rounded text-[10px] font-extrabold uppercase bg-teal-600 text-white shadow-sm">
+                          Option 3 • Recommended
+                        </span>
+                        {intent === 'combined' && (
+                          <span className="px-2 py-0.5 rounded text-[10px] font-extrabold uppercase bg-teal-700 text-white shadow-xs">
+                            ✓ Currently Active
+                          </span>
+                        )}
+                      </div>
                       <h3 className="font-extrabold text-base text-slate-900 mt-1 group-hover:text-teal-700 transition-colors">
                         Find Room &amp; Roommate
                       </h3>
@@ -1445,7 +1538,7 @@ function CompulsoryOnboardingModal({
                   </div>
 
                   <div className="pt-4 border-t border-teal-200 mt-4 flex items-center justify-between text-xs font-extrabold text-teal-800">
-                    <span>Select &amp; Continue</span>
+                    <span>{intent === 'combined' ? 'Continue with Both' : 'Select & Continue'}</span>
                     <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                   </div>
                 </button>
@@ -2374,12 +2467,14 @@ function HomePage({
   onViewRoommate,
   onConnectRoommate,
   onOpenListRoom,
-  onLaunchOnboarding
+  onLaunchOnboarding,
+  selectedIntent
 }: {
   rooms: Room[];
   roommates: RoommateProfile[];
   savedRoomIds: Set<string>;
   savedRoommateUids: Set<string>;
+  selectedIntent?: 'room' | 'roommate' | 'combined';
   onToggleSaveRoom: (r: Room) => void;
   onToggleSaveRoommate: (m: RoommateProfile) => void;
   onViewRoom: (r: Room) => void;
@@ -2425,45 +2520,81 @@ function HomePage({
 
           {/* 3 Main Choice Cards Directly on Hero */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-4 max-w-4xl mx-auto text-left">
+            {/* Card 1: Room */}
             <button
               onClick={() => onLaunchOnboarding('room')}
-              className="p-5 rounded-2xl bg-white/10 hover:bg-white/15 border border-white/20 backdrop-blur-md transition-all duration-200 text-white group hover:-translate-y-1"
+              className={`p-5 rounded-2xl backdrop-blur-md transition-all duration-200 text-white group hover:-translate-y-1 ${
+                selectedIntent === 'room'
+                  ? 'border-2 border-teal-400 bg-teal-500/25 ring-2 ring-teal-400/40 shadow-lg shadow-teal-900/30'
+                  : 'bg-white/10 hover:bg-white/15 border border-white/20'
+              }`}
             >
               <div className="w-10 h-10 rounded-xl bg-teal-500/20 text-teal-300 flex items-center justify-center mb-3">
                 <HomeIcon className="w-5 h-5" />
               </div>
-              <h3 className="font-extrabold text-sm text-white group-hover:text-teal-300">1. Find a Room</h3>
+              <div className="flex items-center gap-2 mb-1">
+                <h3 className="font-extrabold text-sm text-white group-hover:text-teal-300">1. Find a Room</h3>
+                {selectedIntent === 'room' && (
+                  <span className="px-1.5 py-0.5 rounded text-[9px] font-extrabold uppercase bg-teal-400 text-slate-950">
+                    Active Goal
+                  </span>
+                )}
+              </div>
               <p className="text-xs text-slate-300 mt-1">Browse verified rooms, apartments, and private student accommodation.</p>
               <span className="inline-flex items-center gap-1 text-[11px] font-bold text-teal-400 mt-3">
-                Start Questionnaire <ArrowRight className="w-3.5 h-3.5" />
+                {selectedIntent === 'room' ? 'Continue Room Search' : 'Start Questionnaire'} <ArrowRight className="w-3.5 h-3.5" />
               </span>
             </button>
 
+            {/* Card 2: Roommate */}
             <button
               onClick={() => onLaunchOnboarding('roommate')}
-              className="p-5 rounded-2xl bg-white/10 hover:bg-white/15 border border-white/20 backdrop-blur-md transition-all duration-200 text-white group hover:-translate-y-1"
+              className={`p-5 rounded-2xl backdrop-blur-md transition-all duration-200 text-white group hover:-translate-y-1 ${
+                selectedIntent === 'roommate'
+                  ? 'border-2 border-indigo-400 bg-indigo-500/25 ring-2 ring-indigo-400/40 shadow-lg shadow-indigo-900/30'
+                  : 'bg-white/10 hover:bg-white/15 border border-white/20'
+              }`}
             >
               <div className="w-10 h-10 rounded-xl bg-indigo-500/20 text-indigo-300 flex items-center justify-center mb-3">
                 <Users className="w-5 h-5" />
               </div>
-              <h3 className="font-extrabold text-sm text-white group-hover:text-indigo-300">2. Find a Roommate</h3>
+              <div className="flex items-center gap-2 mb-1">
+                <h3 className="font-extrabold text-sm text-white group-hover:text-indigo-300">2. Find a Roommate</h3>
+                {selectedIntent === 'roommate' && (
+                  <span className="px-1.5 py-0.5 rounded text-[9px] font-extrabold uppercase bg-indigo-400 text-slate-950">
+                    Active Goal
+                  </span>
+                )}
+              </div>
               <p className="text-xs text-slate-300 mt-1">Match with cohabitants aligned on sleep routines, diet, and cleanliness.</p>
               <span className="inline-flex items-center gap-1 text-[11px] font-bold text-indigo-400 mt-3">
-                Start Questionnaire <ArrowRight className="w-3.5 h-3.5" />
+                {selectedIntent === 'roommate' ? 'Continue Roommate Search' : 'Start Questionnaire'} <ArrowRight className="w-3.5 h-3.5" />
               </span>
             </button>
 
+            {/* Card 3: Combined */}
             <button
               onClick={() => onLaunchOnboarding('combined')}
-              className="p-5 rounded-2xl bg-teal-500/20 hover:bg-teal-500/25 border-2 border-teal-400/60 backdrop-blur-md transition-all duration-200 text-white group hover:-translate-y-1 ring-2 ring-teal-500/20"
+              className={`p-5 rounded-2xl backdrop-blur-md transition-all duration-200 text-white group hover:-translate-y-1 ${
+                selectedIntent === 'combined'
+                  ? 'border-2 border-teal-400 bg-teal-500/25 ring-2 ring-teal-400/40 shadow-lg shadow-teal-900/30'
+                  : 'bg-white/10 hover:bg-white/15 border border-white/20'
+              }`}
             >
               <div className="w-10 h-10 rounded-xl bg-teal-400 text-slate-950 flex items-center justify-center mb-3 font-bold">
                 <Sparkles className="w-5 h-5" />
               </div>
-              <h3 className="font-extrabold text-sm text-white group-hover:text-teal-300">3. Find Room &amp; Roommate</h3>
+              <div className="flex items-center gap-2 mb-1">
+                <h3 className="font-extrabold text-sm text-white group-hover:text-teal-300">3. Find Room &amp; Roommate</h3>
+                {selectedIntent === 'combined' && (
+                  <span className="px-1.5 py-0.5 rounded text-[9px] font-extrabold uppercase bg-teal-400 text-slate-950">
+                    Active Goal
+                  </span>
+                )}
+              </div>
               <p className="text-xs text-slate-200 mt-1">Complete solution: paired matching for rooms and flatmates together.</p>
               <span className="inline-flex items-center gap-1 text-[11px] font-extrabold text-teal-300 mt-3">
-                Recommended Mode <ArrowRight className="w-3.5 h-3.5" />
+                {selectedIntent === 'combined' ? 'Continue Combined Search' : 'Recommended Mode'} <ArrowRight className="w-3.5 h-3.5" />
               </span>
             </button>
           </div>
@@ -2670,11 +2801,13 @@ function HomePage({
             </p>
           </div>
           <button
-            onClick={() => onLaunchOnboarding('combined')}
+            onClick={() => onLaunchOnboarding(selectedIntent || 'combined')}
             className="px-8 py-4 rounded-2xl bg-teal-500 hover:bg-teal-400 text-slate-950 font-extrabold text-sm shadow-xl flex items-center gap-2 transition-transform hover:scale-105 whitespace-nowrap"
           >
             <Sparkle className="w-4 h-4 fill-slate-950" />
-            <span>Launch Questionnaire</span>
+            <span>
+              Launch Questionnaire ({selectedIntent === 'room' ? 'Room Only' : selectedIntent === 'roommate' ? 'Roommate Only' : 'Room + Roommate'})
+            </span>
           </button>
         </div>
       </section>
@@ -3056,6 +3189,12 @@ function QuestionnairePage({
     return (localStorage.getItem('roombridge_intent') as any) || defaultIntent || 'combined';
   });
   const [showSwitchMode, setShowSwitchMode] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (defaultIntent && defaultIntent !== matchingType) {
+      setMatchingType(defaultIntent);
+    }
+  }, [defaultIntent]);
   const [step, setStep] = useState<number>(1);
   const [targetCity, setTargetCity] = useState<string>('Bengaluru');
   const [budgetMin, setBudgetMin] = useState<number>(10000);

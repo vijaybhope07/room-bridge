@@ -108,7 +108,9 @@ export interface User {
   occupation?: string;
   college?: string;
   city?: string;
+  preferredCity?: string;
   preferredLocality?: string;
+  phone?: string;
   bio?: string;
   age?: number;
   selectedIntent?: 'room' | 'roommate' | 'combined';
@@ -120,4 +122,7 @@ export interface User {
   wakeTime?: string;
   cleanliness?: string;
   noiseTolerance?: string;
+  smokingPreference?: string;
+  guestPreference?: string;
+  hobbies?: string[];
 }

@@ -157,10 +157,10 @@ export const CompulsoryOnboardingModal: React.FC<CompulsoryOnboardingModalProps>
       setCurrentUser(updated);
       localStorage.setItem('roombridge_user', JSON.stringify(updated));
       syncUserProfileToFirestore(updated).catch(() => {});
-      setStep('questionnaire');
-    } else {
-      setStep('auth');
     }
+
+    // Always proceed directly to Step 2: Login / Signup page
+    setStep('auth');
   };
 
   // Handle Google Login (Automatic detail fetching)
@@ -627,6 +627,33 @@ export const CompulsoryOnboardingModal: React.FC<CompulsoryOnboardingModalProps>
                   {intent === 'room' ? '1. Find a Room' : intent === 'roommate' ? '2. Find a Roommate' : '3. Room & Roommate'}
                 </span>
               </div>
+
+              {/* Already Logged In Quick Proceed Banner */}
+              {currentUser && (
+                <div className="p-4 rounded-2xl bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs animate-in fade-in duration-200 shadow-xs">
+                  <div className="flex items-center gap-3">
+                    {currentUser.profileImageUrl ? (
+                      <img src={currentUser.profileImageUrl} alt={currentUser.displayName} className="w-10 h-10 rounded-full object-cover border-2 border-emerald-300 flex-shrink-0" />
+                    ) : (
+                      <div className="w-10 h-10 rounded-full bg-slate-900 text-teal-400 font-bold flex items-center justify-center text-sm flex-shrink-0">
+                        {currentUser.displayName ? currentUser.displayName.charAt(0).toUpperCase() : 'G'}
+                      </div>
+                    )}
+                    <div>
+                      <p className="font-extrabold text-slate-900 text-sm">{currentUser.displayName}</p>
+                      <p className="text-[11px] text-emerald-800">{currentUser.email} • Google Authenticated</p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setStep('questionnaire')}
+                    className="px-4 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-extrabold text-xs shadow-sm flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    <span>Proceed to Questionnaire</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </button>
+                </div>
+              )}
 
               {/* Google / Gmail Authentication Options */}
               <div className="space-y-2.5">

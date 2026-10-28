@@ -91,25 +91,15 @@ export default function App() {
   });
 
   const [onboardingOpen, setOnboardingOpen] = useState<boolean>(() => {
-    // Modal opens upon user interaction or continuing questionnaire, never traps them on initial page load
-    return false;
+    // When website opens, directly pop up modal if onboarding not completed
+    const questionnaireDone = localStorage.getItem('roombridge_questionnaire_completed') === 'true';
+    return !questionnaireDone;
   });
 
   const [onboardingStep, setOnboardingStep] = useState<OnboardingStep>(() => {
     const questionnaireDone = localStorage.getItem('roombridge_questionnaire_completed') === 'true';
     if (questionnaireDone) return 'ar2m_score';
-    const savedIntent = localStorage.getItem('roombridge_intent');
-    const savedUser = localStorage.getItem('roombridge_user');
-    // If user has already chosen their purpose previously, advance past intent
-    if (savedIntent) {
-      return savedUser ? 'questionnaire' : 'auth';
-    }
-    if (savedUser) {
-      try {
-        const u = JSON.parse(savedUser);
-        if (u.selectedIntent) return 'questionnaire';
-      } catch (e) {}
-    }
+    // Directly start at Step 1: 3 options
     return 'intent';
   });
 
@@ -223,7 +213,7 @@ export default function App() {
           setOnboardingOpen(false);
         } else {
           setHasCompletedOnboarding(false);
-          setOnboardingStep('questionnaire');
+          setOnboardingOpen(true);
         }
       }
     });

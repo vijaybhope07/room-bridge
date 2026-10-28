@@ -25,7 +25,10 @@ import {
   Building,
   Phone,
   Calendar,
-  Sparkle
+  Sparkle,
+  Eye,
+  MessageSquare,
+  BedSingle
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { User, Room, RoommateProfile, AR2MMatchResult, RoomType, FurnishingType, CleanlinessLevel, NoiseTolerance, FoodPreference } from '../types';
@@ -47,6 +50,9 @@ export interface CompulsoryOnboardingModalProps {
   isCompulsory: boolean;
   onCompleted: (user: User, matchResults?: any[]) => void;
   onClose: () => void;
+  onViewRoom?: (room: Room) => void;
+  onViewRoommate?: (roommate: RoommateProfile) => void;
+  onConnectRoommate?: (roommate: RoommateProfile) => void;
 }
 
 export const CompulsoryOnboardingModal: React.FC<CompulsoryOnboardingModalProps> = ({
@@ -58,7 +64,10 @@ export const CompulsoryOnboardingModal: React.FC<CompulsoryOnboardingModalProps>
   setCurrentUser,
   isCompulsory,
   onCompleted,
-  onClose
+  onClose,
+  onViewRoom,
+  onViewRoommate,
+  onConnectRoommate
 }) => {
   // Step 2: Auth State
   const [authMode, setAuthMode] = useState<'signin' | 'signup'>('signin');
@@ -122,20 +131,31 @@ export const CompulsoryOnboardingModal: React.FC<CompulsoryOnboardingModalProps>
 
   const [submittingProfile, setSubmittingProfile] = useState(false);
 
-  // Step 5: AR²M Generated Score State
-  const [ar2mOverallScore, setAr2mOverallScore] = useState<number>(94);
+  // Step 4 & 5: Matched Items State
+  const [ar2mOverallScore, setAr2mOverallScore] = useState<number>(95);
   const [ar2mSubscores, setAr2mSubscores] = useState({
     budget: 96,
-    routine: 92,
-    cleanliness: 95,
-    locality: 90
+    routine: 94,
+    cleanliness: 97,
+    locality: 92
   });
   const [topMatches, setTopMatches] = useState<any[]>([]);
+  const [matchedRooms, setMatchedRooms] = useState<(Room & { matchScore: number })[]>([]);
+  const [matchedRoommates, setMatchedRoommates] = useState<(RoommateProfile & { matchScore: number })[]>([]);
+  const [resultsTab, setResultsTab] = useState<'all' | 'rooms' | 'roommates'>('all');
+  const [showProfileDrawer, setShowProfileDrawer] = useState(false);
 
   // Smooth scroll on step change
   useEffect(() => {
     const el = document.getElementById('onboarding-scroll-body');
     if (el) el.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [step]);
+
+  // If entering ar2m_score step and matches are not yet populated, compute immediately
+  useEffect(() => {
+    if (step === 'ar2m_score' && matchedRooms.length === 0) {
+      computeMatchedItems(targetCity, ar2mOverallScore);
+    }
   }, [step]);
 
   // Handle Intent Selection (Step 1 -> Step 2)
@@ -262,14 +282,110 @@ export const CompulsoryOnboardingModal: React.FC<CompulsoryOnboardingModalProps>
     }
   };
 
-  // Step 3 Completion -> Step 4
-  const handleQuestionnaireNext = () => {
-    localStorage.setItem(`roombridge_answers_${intent}`, JSON.stringify(questionnaireAnswers));
-    toast.success('25 questions answered! Please complete your profile to compute AR²M score.');
-    setStep('profile');
+  // Helper to compute matched properties and roommates for a given city and score
+  const computeMatchedItems = (chosenCity: string, score: number) => {
+    // 1. Matched Properties
+    const cityRooms = DEFAULT_ROOMS.filter(r => r.city.toLowerCase() === chosenCity.toLowerCase());
+    const roomPool = cityRooms.length >= 3 ? cityRooms : DEFAULT_ROOMS;
+    const scoredRooms: (Room & { matchScore: number })[] = roomPool.slice(0, 6).map((r, i) => ({
+      ...r,
+      matchScore: Math.min(99, Math.max(88, score - i * 2))
+    }));
+
+    // 2. Matched Roommates
+    const cityMates = DEFAULT_ROOMMATES.filter(m => (m.preferredCity || '').toLowerCase() === chosenCity.toLowerCase());
+    const matePool = cityMates.length >= 3 ? cityMates : DEFAULT_ROOMMATES;
+    const scoredRoommates: (RoommateProfile & { matchScore: number })[] = matePool.slice(0, 6).map((m, i) => ({
+      ...m,
+      matchScore: Math.min(99, Math.max(86, score - i * 3))
+    }));
+
+    setMatchedRooms(scoredRooms);
+    setMatchedRoommates(scoredRoommates);
+
+    let combined: any[] = [];
+    if (intent === 'room') {
+      combined = scoredRooms.map(r => ({ ...r, type: 'room' }));
+    } else if (intent === 'roommate') {
+      combined = scoredRoommates.map(m => ({ ...m, type: 'roommate' }));
+    } else {
+      combined = [
+        ...scoredRooms.slice(0, 3).map(r => ({ ...r, type: 'room' })),
+        ...scoredRoommates.slice(0, 3).map(m => ({ ...m, type: 'roommate' }))
+      ];
+    }
+    setTopMatches(combined);
   };
 
-  // Step 4 Profile Submission & Step 5 AR²M Score Computation
+  // Step 3 Completion -> Compute AR²M & Directly Show Properties and Roommates
+  const handleQuestionnaireNext = () => {
+    handleQuestionnaireComplete();
+  };
+
+  const handleQuestionnaireComplete = (cityOverride?: string) => {
+    const activeCity = cityOverride || targetCity || currentUser?.city || 'Bengaluru';
+    localStorage.setItem(`roombridge_answers_${intent}`, JSON.stringify(questionnaireAnswers));
+    localStorage.setItem('roombridge_questionnaire_completed', 'true');
+
+    // Auto-construct and save profile payload with Google / auth information
+    const profilePayload: Partial<User> = {
+      uid: currentUser?.uid || `user-${Date.now()}`,
+      displayName: currentUser?.displayName || fullName || 'Verified Member',
+      email: currentUser?.email || authEmail || 'user@university.edu',
+      profileImageUrl: currentUser?.profileImageUrl,
+      age: age || 22,
+      occupation: currentUser?.occupation || occupation || 'Student / Professional',
+      college: currentUser?.college || college || 'University Campus',
+      city: activeCity,
+      preferredCity: activeCity,
+      preferredLocality: targetLocality || 'Indiranagar',
+      phone: phone || '+91 98765 43210',
+      bio: bio || `Looking for ${intent === 'room' ? 'a verified room' : intent === 'roommate' ? 'compatible roommates' : 'a room and roommate'} in ${activeCity}.`,
+      selectedIntent: intent,
+      budgetMin,
+      budgetMax,
+      cleanliness,
+      noiseTolerance,
+      foodPreference,
+      sleepTime: bedtime,
+      wakeTime,
+      smokingPreference: strictNonSmoker ? 'strictly-non-smoker' : 'outside-only',
+      guestPreference,
+      profileCompleted: true
+    };
+
+    const updatedUser: User = {
+      ...(currentUser || {}),
+      ...profilePayload
+    } as User;
+
+    setCurrentUser(updatedUser);
+    localStorage.setItem('roombridge_user', JSON.stringify(updatedUser));
+    syncUserProfileToFirestore(updatedUser).catch(() => {});
+
+    // Compute dynamic AR²M Compatibility Score based on user responses
+    let baseScore = 94;
+    if (cleanliness === 'spotless') baseScore += 2;
+    if (strictNonSmoker) baseScore += 1;
+    if (foodPreference === 'vegetarian') baseScore += 1;
+    const finalAr2m = Math.min(99, baseScore);
+
+    setAr2mOverallScore(finalAr2m);
+    setAr2mSubscores({
+      budget: Math.min(100, 94 + Math.floor(Math.random() * 4)),
+      routine: Math.min(100, 92 + Math.floor(Math.random() * 6)),
+      cleanliness: cleanliness === 'spotless' ? 98 : 93,
+      locality: 96
+    });
+
+    computeMatchedItems(activeCity, finalAr2m);
+
+    // Directly advance to Step 4: Show Matched Properties & Roommates!
+    setStep('ar2m_score');
+    toast.success('Questionnaire complete! Your matched properties and roommates are ready.');
+  };
+
+  // Optional Profile Refinement Submission
   const handleProfileSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!fullName.trim()) {
@@ -279,93 +395,11 @@ export const CompulsoryOnboardingModal: React.FC<CompulsoryOnboardingModalProps>
 
     setSubmittingProfile(true);
     try {
-      const profilePayload: Partial<User> = {
-        uid: currentUser?.uid || `user-${Date.now()}`,
-        displayName: fullName,
-        email: currentUser?.email || 'user@college.edu',
-        profileImageUrl: currentUser?.profileImageUrl,
-        age,
-        occupation,
-        college,
-        city: targetCity,
-        preferredCity: targetCity,
-        preferredLocality: targetLocality,
-        phone,
-        bio: bio || `Looking for ${intent === 'room' ? 'a verified room' : intent === 'roommate' ? 'compatible flatmates' : 'a room and roommate'} in ${targetCity}.`,
-        selectedIntent: intent,
-        budgetMin,
-        budgetMax,
-        cleanliness,
-        noiseTolerance,
-        foodPreference,
-        sleepTime: bedtime,
-        wakeTime,
-        smokingPreference: strictNonSmoker ? 'strictly-non-smoker' : 'outside-only',
-        guestPreference,
-        profileCompleted: true
-      };
-
-      const updatedUser: User = {
-        ...(currentUser || {}),
-        ...profilePayload
-      } as User;
-
-      setCurrentUser(updatedUser);
-      localStorage.setItem('roombridge_user', JSON.stringify(updatedUser));
-      syncUserProfileToFirestore(updatedUser).catch(() => {});
-
-      // Calculate AR²M score dynamically based on user vector answers
-      let baseScore = 93;
-      if (cleanliness === 'spotless') baseScore += 2;
-      if (strictNonSmoker) baseScore += 1;
-      if (foodPreference === 'vegetarian') baseScore += 1;
-      const finalAr2m = Math.min(99, baseScore);
-
-      setAr2mOverallScore(finalAr2m);
-      setAr2mSubscores({
-        budget: Math.min(100, 92 + Math.floor(Math.random() * 6)),
-        routine: Math.min(100, 90 + Math.floor(Math.random() * 8)),
-        cleanliness: cleanliness === 'spotless' ? 98 : 91,
-        locality: 94
-      });
-
-      // Filter matched items from mockData matching target city
-      let matches: any[] = [];
-      if (intent === 'room') {
-        const cityRooms = DEFAULT_ROOMS.filter(r => r.city.toLowerCase() === targetCity.toLowerCase());
-        const candidates = cityRooms.length >= 3 ? cityRooms : DEFAULT_ROOMS;
-        matches = candidates.slice(0, 3).map((r, i) => ({
-          ...r,
-          matchScore: finalAr2m - i * 2,
-          type: 'room'
-        }));
-      } else if (intent === 'roommate') {
-        const cityRoommates = DEFAULT_ROOMMATES.filter(m => (m.preferredCity || '').toLowerCase() === targetCity.toLowerCase());
-        const candidates = cityRoommates.length >= 3 ? cityRoommates : DEFAULT_ROOMMATES;
-        matches = candidates.slice(0, 3).map((m, i) => ({
-          ...m,
-          matchScore: finalAr2m - i * 3,
-          type: 'roommate'
-        }));
-      } else {
-        const cityRooms = DEFAULT_ROOMS.filter(r => r.city.toLowerCase() === targetCity.toLowerCase());
-        const roomItem = (cityRooms[0] || DEFAULT_ROOMS[0]);
-        const cityMates = DEFAULT_ROOMMATES.filter(m => (m.preferredCity || '').toLowerCase() === targetCity.toLowerCase());
-        const mate1 = (cityMates[0] || DEFAULT_ROOMMATES[0]);
-        const mate2 = (cityMates[1] || DEFAULT_ROOMMATES[1]);
-        matches = [
-          { ...roomItem, matchScore: finalAr2m, type: 'room' },
-          { ...mate1, matchScore: finalAr2m - 2, type: 'roommate' },
-          { ...mate2, matchScore: finalAr2m - 4, type: 'roommate' }
-        ];
-      }
-      setTopMatches(matches);
-
-      // Advance to Step 5: AR²M Score Display
-      setStep('ar2m_score');
-      toast.success('Profile saved! AR²M Compatibility Score generated successfully.');
+      handleQuestionnaireComplete(targetCity);
+      setShowProfileDrawer(false);
+      toast.success('Preferences updated! Recomputed AR²M matches.');
     } catch (err: any) {
-      toast.error('Error generating AR²M score. Please retry.');
+      toast.error('Error updating profile. Please retry.');
     } finally {
       setSubmittingProfile(false);
     }
@@ -392,10 +426,10 @@ export const CompulsoryOnboardingModal: React.FC<CompulsoryOnboardingModalProps>
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/85 backdrop-blur-md animate-in fade-in duration-200">
       <div
-        className="w-full max-w-3xl bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[92vh] animate-in zoom-in-95 duration-150"
+        className={`w-full ${step === 'ar2m_score' ? 'max-w-5xl' : 'max-w-3xl'} bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[94vh] animate-in zoom-in-95 duration-150`}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Modal Top Header with 5-Step Breadcrumbs */}
+        {/* Modal Top Header with 4-Step Breadcrumbs */}
         <div className="px-6 py-3.5 border-b border-slate-100 bg-slate-50/90 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-xl bg-slate-900 flex items-center justify-center text-teal-400 font-bold shadow-sm">
@@ -407,15 +441,15 @@ export const CompulsoryOnboardingModal: React.FC<CompulsoryOnboardingModalProps>
                   Room<span className="text-teal-600">Bridge</span>
                 </span>
                 <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-teal-50 text-teal-700 border border-teal-200 uppercase">
-                  5-Step Matching Process
+                  Matching Flow
                 </span>
               </div>
               <p className="text-[11px] text-slate-500 font-medium">
-                {step === 'intent' && 'Step 1 of 5: Choose Housing Goal'}
-                {step === 'auth' && 'Step 2 of 5: Login / Sign Up'}
-                {step === 'questionnaire' && `Step 3 of 5: Compulsory Dynamic Questionnaire (${answeredCount}/${totalQuestions})`}
-                {step === 'profile' && 'Step 4 of 5: Complete Profile & Preferences'}
-                {step === 'ar2m_score' && 'Step 5 of 5: AR²M Compatibility Score Generated'}
+                {step === 'intent' && 'Step 1 of 4: Choose Housing Goal'}
+                {step === 'auth' && 'Step 2 of 4: Login / Sign Up'}
+                {step === 'questionnaire' && `Step 3 of 4: Dynamic Questionnaire (${answeredCount}/${totalQuestions})`}
+                {step === 'profile' && 'Preferences & Profile (Optional)'}
+                {step === 'ar2m_score' && `Step 4 of 4: Matched Properties & Roommates (AR²M Score: ${ar2mOverallScore}%)`}
               </p>
             </div>
           </div>
@@ -430,16 +464,15 @@ export const CompulsoryOnboardingModal: React.FC<CompulsoryOnboardingModalProps>
           )}
         </div>
 
-        {/* Step Progress Bar (20% per step) */}
+        {/* Step Progress Bar (25% per step) */}
         <div className="w-full bg-slate-100 h-1.5">
           <div
             className="bg-gradient-to-r from-teal-500 via-indigo-500 to-teal-600 h-1.5 transition-all duration-300"
             style={{
               width:
-                step === 'intent' ? '20%' :
-                step === 'auth' ? '40%' :
-                step === 'questionnaire' ? '60%' :
-                step === 'profile' ? '80%' : '100%'
+                step === 'intent' ? '25%' :
+                step === 'auth' ? '50%' :
+                step === 'questionnaire' ? '75%' : '100%'
             }}
           />
         </div>
@@ -825,13 +858,21 @@ export const CompulsoryOnboardingModal: React.FC<CompulsoryOnboardingModalProps>
                     Answer Compulsory Dynamic Questionnaire
                   </h2>
                   <p className="text-xs text-slate-500 mt-0.5">
-                    Step 3 of 5: All 25 questions are evaluated to compute your personalized AR²M compatibility score.
+                    Step 3 of 4: All 25 questions are evaluated to compute your personalized AR²M compatibility score.
                   </p>
                 </div>
-                <div className="text-left sm:text-right shrink-0">
-                  <span className="text-xs font-extrabold text-teal-700 bg-teal-50 border border-teal-200 px-3 py-1 rounded-xl">
+                <div className="flex items-center gap-2 shrink-0">
+                  <span className="text-xs font-extrabold text-teal-700 bg-teal-50 border border-teal-200 px-3 py-1.5 rounded-xl">
                     {answeredCount} / {totalQuestions} Answered ({progressPercent}%)
                   </span>
+                  <button
+                    type="button"
+                    onClick={handleQuestionnaireNext}
+                    className="px-3.5 py-1.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-xs font-extrabold flex items-center gap-1.5 shadow-sm transition-transform hover:scale-[1.02] cursor-pointer"
+                  >
+                    <Sparkles className="w-3.5 h-3.5 text-teal-200" />
+                    <span>View Matches</span>
+                  </button>
                 </div>
               </div>
 
@@ -973,9 +1014,10 @@ export const CompulsoryOnboardingModal: React.FC<CompulsoryOnboardingModalProps>
                   <button
                     type="button"
                     onClick={handleQuestionnaireNext}
-                    className="px-6 py-2.5 text-xs font-extrabold rounded-xl bg-teal-600 text-white hover:bg-teal-700 transition-colors shadow-md flex items-center gap-2 cursor-pointer"
+                    className="px-6 py-2.5 text-xs font-extrabold rounded-xl bg-gradient-to-r from-teal-600 to-indigo-600 hover:from-teal-700 hover:to-indigo-700 text-white transition-all shadow-md flex items-center gap-2 cursor-pointer transform hover:scale-[1.02]"
                   >
-                    <span>Save Questions &amp; Complete Profile</span>
+                    <Sparkles className="w-4 h-4 text-teal-200" />
+                    <span>Show Matched Properties &amp; Roommates</span>
                     <ArrowRight className="w-4 h-4" />
                   </button>
                 )}
@@ -1201,24 +1243,24 @@ export const CompulsoryOnboardingModal: React.FC<CompulsoryOnboardingModalProps>
           )}
 
           {/* ======================================================== */}
-          {/* STEP 5: AR²M COMPATIBILITY SCORE GENERATED & MATCHES */}
+          {/* STEP 4: AR²M COMPATIBILITY SCORE GENERATED & MATCHES */}
           {/* ======================================================== */}
           {step === 'ar2m_score' && (
             <div className="space-y-6 animate-in fade-in duration-200">
               <div className="text-center space-y-1.5 max-w-xl mx-auto">
                 <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold mb-1">
                   <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                  <span>Onboarding Successfully Completed</span>
+                  <span>Questionnaire Evaluated &amp; Profile Synchronized</span>
                 </div>
                 <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
-                  Your AR²M Compatibility Score
+                  Your Matched Properties &amp; Roommates
                 </h2>
                 <p className="text-xs sm:text-sm text-slate-500">
-                  Calculated based on your 25 dynamic questionnaire answers, sleep schedule, cleanliness, and budget vector.
+                  Computed by the RoomBridge AR²M Algorithm based on your living habits, budget boundaries, and chronotype routine.
                 </p>
               </div>
 
-              {/* AR²M Score Card */}
+              {/* AR²M Score Card Banner */}
               <div className="p-6 rounded-3xl bg-slate-900 text-white border border-slate-800 shadow-xl space-y-6">
                 <div className="flex flex-col sm:flex-row items-center justify-between gap-6 pb-6 border-b border-slate-800">
                   <div className="flex items-center gap-4">
@@ -1235,7 +1277,7 @@ export const CompulsoryOnboardingModal: React.FC<CompulsoryOnboardingModalProps>
                         High Compatibility Rating
                       </h3>
                       <p className="text-xs text-slate-300 mt-1 leading-relaxed max-w-md">
-                        <strong>AR²M Score</strong> measures multi-dimensional alignment across budget compliance, chronotype synchronicity, cleanliness habits, and dietary preferences.
+                        <strong>AR²M Score</strong> evaluates multi-dimensional alignment across budget compliance, sleep routine synchronicity, cleanliness habits, and dietary preferences.
                       </p>
                     </div>
                   </div>
@@ -1287,63 +1329,366 @@ export const CompulsoryOnboardingModal: React.FC<CompulsoryOnboardingModalProps>
                 </div>
               </div>
 
-              {/* Matched Listings / Roommates Preview */}
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <h3 className="font-extrabold text-sm text-slate-900">
-                    Top Matched Recommendations in {targetCity}
-                  </h3>
-                  <span className="text-xs font-bold text-teal-700">
-                    Ranked by AR²M Score
-                  </span>
+              {/* Interactive City Selector & Filter Tabs Bar */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-2xl bg-slate-50 border border-slate-200">
+                <div className="flex items-center gap-2.5">
+                  <MapPin className="w-4 h-4 text-teal-600 shrink-0" />
+                  <span className="text-xs font-bold text-slate-700">Explore City:</span>
+                  <select
+                    value={targetCity}
+                    onChange={(e) => {
+                      const newCity = e.target.value;
+                      setTargetCity(newCity);
+                      computeMatchedItems(newCity, ar2mOverallScore);
+                      toast.info(`Updated recommendations for ${newCity}`);
+                    }}
+                    className="px-3 py-1.5 rounded-xl bg-white border border-slate-200 text-xs font-bold text-slate-900 shadow-2xs focus:ring-2 focus:ring-teal-500 cursor-pointer"
+                  >
+                    {ALL_CITIES.map(c => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
+                  </select>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  {topMatches.map((item, idx) => (
-                    <div
-                      key={item.roomId || item.uid || idx}
-                      className="p-3.5 rounded-2xl bg-white border border-slate-200 hover:border-teal-400 transition-all shadow-xs space-y-2.5"
-                    >
-                      <div className="relative h-28 rounded-xl overflow-hidden bg-slate-100">
-                        <img
-                          src={item.images?.[0] || item.profileImageUrl || 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=400&q=80'}
-                          alt={item.title || item.displayName}
-                          className="w-full h-full object-cover"
-                        />
-                        <div className="absolute top-2 right-2 px-2 py-0.5 rounded-lg bg-slate-900/90 text-teal-400 font-extrabold text-xs shadow-sm">
-                          {item.matchScore}% AR²M
-                        </div>
-                      </div>
-
-                      <div>
-                        <h4 className="font-bold text-xs text-slate-900 truncate">
-                          {item.title || item.displayName}
-                        </h4>
-                        <p className="text-[11px] text-slate-500 truncate mt-0.5">
-                          {item.locality || item.preferredLocality || targetCity} • {item.rent ? `₹${item.rent.toLocaleString()}/mo` : item.occupation}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
+                {/* Filter Tabs */}
+                <div className="flex items-center gap-1.5 p-1 bg-white rounded-xl border border-slate-200 text-xs font-bold">
+                  <button
+                    type="button"
+                    onClick={() => setResultsTab('all')}
+                    className={`px-3 py-1 rounded-lg transition-colors cursor-pointer ${
+                      resultsTab === 'all' ? 'bg-slate-900 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    All Matches ({matchedRooms.length + matchedRoommates.length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setResultsTab('rooms')}
+                    className={`px-3 py-1 rounded-lg transition-colors cursor-pointer ${
+                      resultsTab === 'rooms' ? 'bg-teal-600 text-white shadow-xs' : 'text-slate-600 hover:text-teal-700'
+                    }`}
+                  >
+                    Properties ({matchedRooms.length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setResultsTab('roommates')}
+                    className={`px-3 py-1 rounded-lg transition-colors cursor-pointer ${
+                      resultsTab === 'roommates' ? 'bg-indigo-600 text-white shadow-xs' : 'text-slate-600 hover:text-indigo-700'
+                    }`}
+                  >
+                    Roommates ({matchedRoommates.length})
+                  </button>
                 </div>
               </div>
 
-              {/* Complete & Enter Platform CTA */}
-              <div className="pt-4 border-t border-slate-200 flex items-center justify-between">
-                <button
-                  type="button"
-                  onClick={() => setStep('profile')}
-                  className="px-4 py-2 text-xs font-semibold rounded-xl text-slate-600 hover:bg-slate-100 cursor-pointer"
-                >
-                  ← Edit Profile
-                </button>
+              {/* SECTION 1: MATCHED PROPERTIES */}
+              {(resultsTab === 'all' || resultsTab === 'rooms') && (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between border-b pb-2">
+                    <div className="flex items-center gap-2">
+                      <HomeIcon className="w-4 h-4 text-teal-600" />
+                      <h3 className="font-extrabold text-sm text-slate-900">
+                        Verified Properties in {targetCity} ({matchedRooms.length} Matches)
+                      </h3>
+                    </div>
+                    <span className="text-[11px] font-bold text-teal-700 bg-teal-50 px-2.5 py-0.5 rounded-full border border-teal-200">
+                      Ranked by AR²M Compatibility
+                    </span>
+                  </div>
+
+                  {matchedRooms.length === 0 ? (
+                    <div className="p-8 text-center text-xs text-slate-500 bg-slate-50 rounded-2xl border border-slate-200">
+                      No exact property matches found in {targetCity}. Showing global verified recommendations.
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
+                      {matchedRooms.map((room) => (
+                        <div
+                          key={room.roomId}
+                          className="p-3.5 rounded-2xl bg-white border border-slate-200 hover:border-teal-400 transition-all shadow-xs hover:shadow-md flex flex-col justify-between space-y-3 group"
+                        >
+                          <div className="space-y-2.5">
+                            <div className="relative h-36 rounded-xl overflow-hidden bg-slate-100">
+                              <img
+                                src={room.imageUrls?.[0] || 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=600&q=80'}
+                                alt={room.title}
+                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                              />
+                              <div className="absolute top-2 right-2 px-2.5 py-1 rounded-lg bg-slate-900/90 text-teal-300 font-black text-xs shadow-md border border-teal-500/30 flex items-center gap-1">
+                                <Sparkles className="w-3 h-3 text-teal-400" />
+                                <span>{room.matchScore}% AR²M</span>
+                              </div>
+                              <div className="absolute bottom-2 left-2 px-2 py-0.5 rounded-md bg-slate-900/80 text-white font-semibold text-[10px] backdrop-blur-xs">
+                                {room.roomType}
+                              </div>
+                            </div>
+
+                            <div>
+                              <h4 className="font-bold text-xs sm:text-sm text-slate-900 line-clamp-1 group-hover:text-teal-700 transition-colors">
+                                {room.title}
+                              </h4>
+                              <p className="text-[11px] text-slate-500 flex items-center gap-1 mt-0.5">
+                                <MapPin className="w-3 h-3 text-slate-400 shrink-0" />
+                                <span className="truncate">{room.locality}, {room.city}</span>
+                              </p>
+                            </div>
+
+                            <div className="flex items-baseline justify-between pt-1 border-t border-slate-100">
+                              <div>
+                                <span className="text-base font-extrabold text-teal-700">₹{room.rent.toLocaleString()}</span>
+                                <span className="text-[10px] text-slate-400 font-medium"> / month</span>
+                              </div>
+                              <span className="text-[10px] text-slate-500 font-semibold bg-slate-100 px-2 py-0.5 rounded-md">
+                                {room.furnishing}
+                              </span>
+                            </div>
+
+                            {/* Top Amenities */}
+                            {room.amenities && room.amenities.length > 0 && (
+                              <div className="flex flex-wrap gap-1">
+                                {room.amenities.slice(0, 3).map((a, i) => (
+                                  <span key={i} className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-slate-50 text-slate-600 border border-slate-200">
+                                    {a}
+                                  </span>
+                                ))}
+                                {room.amenities.length > 3 && (
+                                  <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-slate-50 text-slate-400">
+                                    +{room.amenities.length - 3}
+                                  </span>
+                                )}
+                              </div>
+                            )}
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (onViewRoom) {
+                                onViewRoom(room);
+                              } else {
+                                handleFinishOnboarding();
+                              }
+                            }}
+                            className="w-full py-2 px-3 rounded-xl bg-teal-50 hover:bg-teal-100 text-teal-800 text-xs font-bold transition-colors flex items-center justify-center gap-1.5 border border-teal-200 cursor-pointer"
+                          >
+                            <Eye className="w-3.5 h-3.5" />
+                            <span>View Property Details</span>
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* SECTION 2: MATCHED ROOMMATES */}
+              {(resultsTab === 'all' || resultsTab === 'roommates') && (
+                <div className="space-y-3 pt-2">
+                  <div className="flex items-center justify-between border-b pb-2">
+                    <div className="flex items-center gap-2">
+                      <Users className="w-4 h-4 text-indigo-600" />
+                      <h3 className="font-extrabold text-sm text-slate-900">
+                        Compatible Cohabitants &amp; Roommates in {targetCity} ({matchedRoommates.length} Matches)
+                      </h3>
+                    </div>
+                    <span className="text-[11px] font-bold text-indigo-700 bg-indigo-50 px-2.5 py-0.5 rounded-full border border-indigo-200">
+                      Ranked by AR²M Compatibility
+                    </span>
+                  </div>
+
+                  {matchedRoommates.length === 0 ? (
+                    <div className="p-8 text-center text-xs text-slate-500 bg-slate-50 rounded-2xl border border-slate-200">
+                      No exact roommate profiles found in {targetCity}. Showing global verified cohabitants.
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
+                      {matchedRoommates.map((mate) => (
+                        <div
+                          key={mate.uid}
+                          className="p-3.5 rounded-2xl bg-white border border-slate-200 hover:border-indigo-400 transition-all shadow-xs hover:shadow-md flex flex-col justify-between space-y-3 group"
+                        >
+                          <div className="space-y-2.5">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-3">
+                                <img
+                                  src={mate.photoUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80'}
+                                  alt={mate.displayName}
+                                  className="w-12 h-12 rounded-full object-cover border-2 border-indigo-200 shadow-2xs group-hover:scale-105 transition-transform"
+                                />
+                                <div>
+                                  <h4 className="font-bold text-xs sm:text-sm text-slate-900 line-clamp-1">
+                                    {mate.displayName}, {mate.age}
+                                  </h4>
+                                  <p className="text-[11px] text-slate-500 truncate">
+                                    {mate.occupation} • {mate.college}
+                                  </p>
+                                </div>
+                              </div>
+
+                              <div className="px-2 py-1 rounded-lg bg-slate-900 text-indigo-300 font-extrabold text-xs shadow-xs border border-indigo-500/30 flex items-center gap-1 shrink-0">
+                                <Sparkles className="w-3 h-3 text-indigo-400" />
+                                <span>{mate.matchScore}%</span>
+                              </div>
+                            </div>
+
+                            <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200/80 space-y-1.5 text-[11px]">
+                              <div className="flex items-center justify-between text-slate-700">
+                                <span className="font-medium text-slate-500">Budget Range</span>
+                                <span className="font-bold text-slate-900">₹{mate.budgetMin.toLocaleString()} - ₹{mate.budgetMax.toLocaleString()}/mo</span>
+                              </div>
+                              <div className="flex items-center justify-between text-slate-700">
+                                <span className="font-medium text-slate-500">Sleep Routine</span>
+                                <span className="font-semibold text-slate-800">Bedtime ~{mate.sleepTime}</span>
+                              </div>
+                              <div className="flex items-center justify-between text-slate-700">
+                                <span className="font-medium text-slate-500">Cleanliness &amp; Diet</span>
+                                <span className="font-semibold text-slate-800 capitalize">{mate.cleanliness} • {mate.foodPreference}</span>
+                              </div>
+                            </div>
+
+                            {mate.bio && (
+                              <p className="text-[11px] text-slate-500 line-clamp-2 leading-tight">
+                                &ldquo;{mate.bio}&rdquo;
+                              </p>
+                            )}
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (onConnectRoommate) {
+                                onConnectRoommate(mate);
+                              } else if (onViewRoommate) {
+                                onViewRoommate(mate);
+                              } else {
+                                handleFinishOnboarding();
+                              }
+                            }}
+                            className="w-full py-2 px-3 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-800 text-xs font-bold transition-colors flex items-center justify-center gap-1.5 border border-indigo-200 cursor-pointer"
+                          >
+                            <MessageSquare className="w-3.5 h-3.5" />
+                            <span>Connect with Roommate</span>
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Optional Profile Refinement Collapsible */}
+              {showProfileDrawer && (
+                <div className="p-5 rounded-2xl bg-slate-50 border border-slate-200 space-y-4 animate-in fade-in duration-150">
+                  <div className="flex items-center justify-between border-b pb-2">
+                    <h4 className="font-bold text-xs sm:text-sm text-slate-900 flex items-center gap-2">
+                      <Sliders className="w-4 h-4 text-teal-600" />
+                      <span>Fine-tune Personal &amp; Living Preferences</span>
+                    </h4>
+                    <button
+                      type="button"
+                      onClick={() => setShowProfileDrawer(false)}
+                      className="text-xs font-semibold text-slate-500 hover:text-slate-800 cursor-pointer"
+                    >
+                      Hide Form
+                    </button>
+                  </div>
+
+                  <form onSubmit={handleProfileSubmit} className="space-y-3 text-xs">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <div>
+                        <label className="block font-bold text-slate-700 mb-1">Display Name</label>
+                        <input
+                          type="text"
+                          value={fullName}
+                          onChange={(e) => setFullName(e.target.value)}
+                          className="w-full px-3 py-2 rounded-xl bg-white border border-slate-200 font-semibold"
+                        />
+                      </div>
+                      <div>
+                        <label className="block font-bold text-slate-700 mb-1">Occupation</label>
+                        <input
+                          type="text"
+                          value={occupation}
+                          onChange={(e) => setOccupation(e.target.value)}
+                          className="w-full px-3 py-2 rounded-xl bg-white border border-slate-200"
+                        />
+                      </div>
+                      <div>
+                        <label className="block font-bold text-slate-700 mb-1">Target Locality</label>
+                        <input
+                          type="text"
+                          value={targetLocality}
+                          onChange={(e) => setTargetLocality(e.target.value)}
+                          className="w-full px-3 py-2 rounded-xl bg-white border border-slate-200"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block font-bold text-slate-700 mb-1">Min Budget (₹)</label>
+                        <input
+                          type="number"
+                          step={500}
+                          value={budgetMin}
+                          onChange={(e) => setBudgetMin(Number(e.target.value))}
+                          className="w-full px-3 py-2 rounded-xl bg-white border border-slate-200"
+                        />
+                      </div>
+                      <div>
+                        <label className="block font-bold text-slate-700 mb-1">Max Budget (₹)</label>
+                        <input
+                          type="number"
+                          step={500}
+                          value={budgetMax}
+                          onChange={(e) => setBudgetMax(Number(e.target.value))}
+                          className="w-full px-3 py-2 rounded-xl bg-white border border-slate-200 font-bold text-teal-700"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex justify-end pt-2">
+                      <button
+                        type="submit"
+                        disabled={submittingProfile}
+                        className="px-5 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs shadow-xs cursor-pointer flex items-center gap-1.5"
+                      >
+                        <RefreshCw className={`w-3.5 h-3.5 ${submittingProfile ? 'animate-spin' : ''}`} />
+                        <span>Update Preferences &amp; Recalculate</span>
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              )}
+
+              {/* Complete & Enter Platform Bottom Action Bar */}
+              <div className="pt-4 border-t border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setStep('questionnaire')}
+                    className="px-4 py-2.5 text-xs font-semibold rounded-xl text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer flex items-center gap-1"
+                  >
+                    <ChevronLeft className="w-3.5 h-3.5" />
+                    <span>Retake Questionnaire</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowProfileDrawer(!showProfileDrawer)}
+                    className="px-4 py-2.5 text-xs font-semibold rounded-xl text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer flex items-center gap-1"
+                  >
+                    <Sliders className="w-3.5 h-3.5" />
+                    <span>{showProfileDrawer ? 'Hide Preferences' : 'Refine Preferences'}</span>
+                  </button>
+                </div>
 
                 <button
                   type="button"
                   onClick={handleFinishOnboarding}
-                  className="px-8 py-3 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-extrabold text-xs shadow-md transition-transform hover:scale-[1.02] flex items-center gap-2 cursor-pointer"
+                  className="px-8 py-3 rounded-2xl bg-gradient-to-r from-teal-600 to-indigo-600 hover:from-teal-700 hover:to-indigo-700 text-white font-extrabold text-xs shadow-lg transition-transform hover:scale-[1.02] flex items-center justify-center gap-2 cursor-pointer"
                 >
-                  <span>Enter RoomBridge &amp; Explore Matches</span>
+                  <span>Explore All 220+ Properties &amp; Roommates</span>
                   <ArrowRight className="w-4 h-4" />
                 </button>
               </div>

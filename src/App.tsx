@@ -581,22 +581,25 @@ export default function App() {
             localStorage.setItem('roombridge_questionnaire_completed', 'true');
             localStorage.setItem('roombridge_onboarding_completed', 'true');
             setOnboardingOpen(false);
-            toast.success(`Questionnaire complete! Matching results ready for ${user.displayName}.`);
+            toast.success(`Welcome to RoomBridge, ${user.displayName}! Showing verified matches.`);
             if (selectedIntent === 'room') {
               navigate('/rooms');
             } else if (selectedIntent === 'roommate') {
               navigate('/roommates');
             } else {
-              navigate('/questionnaire');
+              navigate('/rooms');
             }
           }}
           onClose={() => {
             if (hasCompletedOnboarding) {
               setOnboardingOpen(false);
             } else {
-              toast.error('Please complete the 5 steps to unlock RoomBridge matching.');
+              toast.error('Please complete the questionnaire to view your matched properties and roommates.');
             }
           }}
+          onViewRoom={(r) => setSelectedRoom(r)}
+          onViewRoommate={(m) => setSelectedRoommate(m)}
+          onConnectRoommate={(m) => setConnectTarget(m)}
         />
       )}
 
@@ -619,7 +622,7 @@ export default function App() {
 
       {/* Connection Request Modal */}
       {connectTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-150">
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-150">
           <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden p-6 space-y-4">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <div className="flex items-center gap-3">

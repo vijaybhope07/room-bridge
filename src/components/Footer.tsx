@@ -1,5 +1,5 @@
 import React from 'react';
-import { Home, ShieldCheck, Cpu, Heart } from 'lucide-react';
+import { Home, ShieldCheck, Sparkles, Heart } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 export const Footer: React.FC = () => {
@@ -30,9 +30,8 @@ export const Footer: React.FC = () => {
             <ul className="space-y-2">
               <li><Link to="/rooms" className="hover:text-white transition-colors">Find a Room</Link></li>
               <li><Link to="/roommates" className="hover:text-white transition-colors">Find a Roommate</Link></li>
-              <li><Link to="/questionnaire" className="hover:text-white transition-colors">Smart Dynamic Matcher</Link></li>
-              <li><Link to="/dashboard" className="hover:text-white transition-colors">User Dashboard</Link></li>
-              <li><Link to="/admin" className="hover:text-white transition-colors">Admin &amp; Model Evaluation</Link></li>
+              <li><Link to="/questionnaire" className="hover:text-white transition-colors">AR²M Compatibility Calibration</Link></li>
+              <li><Link to="/dashboard" className="hover:text-white transition-colors">Saved Accommodations</Link></li>
             </ul>
           </div>
 
@@ -41,14 +40,14 @@ export const Footer: React.FC = () => {
             <h4 className="text-white font-bold mb-3 text-xs uppercase tracking-wider">System Architecture</h4>
             <ul className="space-y-2 text-[11px]">
               <li className="flex items-center gap-1.5 text-slate-300">
-                <Cpu className="w-3.5 h-3.5 text-teal-400" />
-                Multi-Stage Match Framework
+                <Sparkles className="w-3.5 h-3.5 text-teal-400" />
+                AR²M Multi-Attribute Recommendation Model
               </li>
-              <li>Similarity Scoring for Amenities &amp; Hobbies</li>
-              <li>Cleanliness &amp; Noise Profile Matching</li>
-              <li>Sleep Schedule Alignment Engine</li>
-              <li>Supervised Predictive Compatibility Engine</li>
-              <li>Cloud Firestore &amp; Firebase Auth</li>
+              <li>Multi-Attribute Utility Theory (MAUT)</li>
+              <li>Jaccard Metric for Amenities &amp; Hobbies</li>
+              <li>Cleanliness &amp; Noise Variance Scoring</li>
+              <li>Sleep Schedule Alignment Delta &Delta;t</li>
+              <li>Google OAuth &amp; Firebase Session Sync</li>
             </ul>
           </div>
 
@@ -68,9 +67,9 @@ export const Footer: React.FC = () => {
         </div>
 
         <div className="mt-8 pt-6 border-t border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-3 text-slate-400 text-[11px]">
-          <p>© 2026 RoomBridge. Developed for Final-Year Engineering Project Demonstration.</p>
+          <p>© 2026 RoomBridge. Phase 1 Evaluation (40% Milestone Scope).</p>
           <div className="flex items-center gap-4">
-            <span className="text-teal-400">AI Compatibility Engine Active</span>
+            <span className="text-teal-400">AR²M Compatibility Engine Active</span>
             <span>•</span>
             <span>REST API Verified</span>
           </div>

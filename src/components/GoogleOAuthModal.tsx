@@ -249,13 +249,24 @@ export const GoogleOAuthModal: React.FC<GoogleOAuthModalProps> = ({
         {!showAddAnother ? (
           <div className="space-y-3">
             {domainUnauthorized && (
-              <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-200/90 text-amber-900 text-xs space-y-1.5 animate-in fade-in duration-150">
-                <div className="flex items-center gap-1.5 font-bold text-amber-900">
-                  <span className="text-amber-600 font-bold text-sm">⚠️</span>
-                  <span>Domain Authorization Notice</span>
+              <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-200/90 text-amber-900 text-xs space-y-2 animate-in fade-in duration-150">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5 font-bold text-amber-900">
+                    <span className="text-amber-600 font-bold text-sm">⚠️</span>
+                    <span>Firebase Domain Authorization</span>
+                  </div>
+                  <a
+                    href="https://console.firebase.google.com/project/roombridge-93411/authentication/settings"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[10px] font-bold text-blue-700 hover:text-blue-900 hover:underline flex items-center gap-0.5"
+                  >
+                    <span>Add Domain in Console</span>
+                    <span>↗</span>
+                  </a>
                 </div>
                 <p className="text-[11px] leading-relaxed text-amber-800">
-                  <code className="bg-amber-100/90 px-1 py-0.5 rounded font-mono font-semibold text-amber-950">{typeof window !== 'undefined' ? window.location.hostname : 'domain'}</code> is not yet whitelisted in Firebase Console Authorized Domains.
+                  <code className="bg-amber-100/90 px-1.5 py-0.5 rounded font-mono font-semibold text-amber-950">{typeof window !== 'undefined' ? window.location.hostname : 'domain'}</code> is not yet whitelisted in Firebase Console Authorized Domains.
                 </p>
                 <div className="pt-1.5 border-t border-amber-200/70 text-[11px] font-semibold text-emerald-800 flex items-center gap-1">
                   <span>👉</span>
